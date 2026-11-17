@@ -17,11 +17,11 @@ Create separate Supabase projects for development and production and use separat
 
 Set these environment variables for the appropriate Vercel environment:
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` (or the project’s publishable key)
-- `NEXT_PUBLIC_SITE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY` (or legacy `SUPABASE_ANON_KEY`)
+- `SITE_URL`
 
-The app does not need the Supabase service-role key. Never expose it to client code. Configure production Auth redirect URLs to the final domain and redeploy after changing environment variables.
+The app uses Supabase only from server code and middleware, so these variables do not need a `NEXT_PUBLIC_` prefix. The publishable key is safe to expose by design, but keeping it server-only avoids bundling it into browser assets. The app does not need the Supabase service-role key. Never expose a service-role/secret key to client code. Configure production Auth redirect URLs to the final domain and redeploy after changing environment variables.
 
 ## Release checklist
 

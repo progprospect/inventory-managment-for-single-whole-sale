@@ -12,13 +12,13 @@ This is not production-ready until connected to a Supabase project and the migra
 
 Requirements: Node.js 20.9+, npm, and a Supabase project. For a local database, install the [Supabase CLI](https://supabase.com/docs/guides/cli) and Docker.
 
-1. Copy `.env.example` to `.env.local`; set the Supabase project URL and publishable/anon key.
+1. Copy `.env.example` to `.env.local`; set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SITE_URL`.
 2. Run `npm install`.
 3. For a local Supabase stack, run `supabase start`, then `supabase db reset` to apply migrations and seed catalog demo data. To use a hosted development project, link that project and run `supabase db push`.
 4. Create the first Auth user, then run the controlled owner bootstrap in `supabase/bootstrap/owner.sql` with that user’s UUID. Create subsequent users through the Supabase Auth dashboard/invite flow, then assign roles in the app.
 5. Run `npm run dev` and open `http://localhost:3000`.
 
-Never put the service-role key in a `NEXT_PUBLIC_*` variable or browser code. New users default to the least-privileged billing role. Public self-registration should remain disabled for a single-shop deployment.
+Never put a service-role or secret key in a `NEXT_PUBLIC_*` variable or browser code. New users default to the least-privileged billing role. Public self-registration should remain disabled for a single-shop deployment.
 
 ## Checks
 
