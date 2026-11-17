@@ -1,0 +1,30 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { PrintButton } from "@/components/invoices/print-button";
+
+type Format = "a4" | "58mm" | "80mm";
+export default async function InvoicePrintPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ format?: string }> }) {
+  const { id } = await params;
+  const { format: rawFormat } = await searchParams;
+  const format: Format = rawFormat === "58mm" || rawFormat === "80mm" ? rawFormat : "a4";
+  const supabase = await createClient();
+  if (!supabase) return <main className="p-8">Configure Supabase to print invoices.</main>;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const [{ data: invoice }, { data: items }] = await Promise.all([
+    supabase.from("sales_invoices").select("*").eq("id", id).eq("status", "posted").single(),
+    supabase.from("sales_items").select("*").eq("invoice_id", id).order("created_at"),
+  ]);
+  if (!invoice) notFound();
+  const narrow = format !== "a4";
+  const paper = format === "58mm" ? "58mm" : format === "80mm" ? "80mm" : "210mm";
+  const money = (amount: number | string) => `INR ${Number(amount).toFixed(2)}`;
+  return <main className="min-h-screen bg-slate-100 p-5 print:min-h-0 print:bg-white print:p-0"><div className="mx-auto mb-4 flex max-w-4xl items-center justify-between print:hidden"><Link href={`/invoices/${id}`} className="text-sm text-blue-700">← Invoice</Link><div className="flex items-center gap-3"><nav className="flex gap-2 text-xs"><Link href={`?format=a4`} className="rounded border bg-white px-2 py-1">Compact</Link><Link href={`?format=58mm`} className="rounded border bg-white px-2 py-1">58mm</Link><Link href={`?format=80mm`} className="rounded border bg-white px-2 py-1">80mm</Link></nav><PrintButton /></div></div>
+    <article className={`invoice-paper mx-auto bg-white text-slate-900 shadow-sm print:shadow-none ${narrow ? "receipt" : "a4"}`}><header className="border-b border-slate-300 pb-3 text-center"><h1 className="text-xl font-bold">{invoice.shop_name || "Wholesale Shop"}</h1>{invoice.shop_address && <p className="mt-1 whitespace-pre-line text-xs">{invoice.shop_address}</p>}<p className="mt-1 text-xs">{[invoice.shop_phone, invoice.shop_email].filter(Boolean).join(" · ")}</p>{invoice.shop_gstin && <p className="mt-1 text-xs">GSTIN: {invoice.shop_gstin}</p>}</header>
+      <section className={`grid gap-1 border-b border-slate-300 py-3 text-xs ${narrow ? "grid-cols-1" : "grid-cols-2"}`}><p><strong>Invoice:</strong> {invoice.invoice_number}</p><p><strong>Date:</strong> {new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Kolkata" }).format(new Date(invoice.invoice_date))}</p><p><strong>Customer:</strong> {invoice.customer_name}</p>{invoice.customer_phone && <p><strong>Phone:</strong> {invoice.customer_phone}</p>}{invoice.customer_gstin && <p><strong>GSTIN:</strong> {invoice.customer_gstin}</p>}{invoice.customer_address && <p className="whitespace-pre-line"><strong>Address:</strong> {invoice.customer_address}</p>}</section>
+      {narrow ? <div className="py-2">{(items ?? []).map((item) => <div key={item.id} className="border-b border-dashed border-slate-300 py-2 text-xs"><p className="font-semibold">{item.product_name}</p><p className="mt-1 flex justify-between"><span>{Number(item.quantity)} {item.unit_name} × {money(item.unit_price)}</span><span>{money(item.line_total)}</span></p><p className="text-[10px] text-slate-600">GST {Number(item.gst_rate)}% · Tax {money(Number(item.cgst_amount)+Number(item.sgst_amount)+Number(item.igst_amount))}</p></div>)}</div> : <table className="my-3 w-full text-xs"><thead><tr className="border-b border-slate-300 text-left"><th className="py-2">Description</th><th className="py-2 text-right">Qty</th><th className="py-2 text-right">Rate</th><th className="py-2 text-right">Taxable</th><th className="py-2 text-right">GST</th><th className="py-2 text-right">Amount</th></tr></thead><tbody>{(items ?? []).map((item) => <tr key={item.id} className="border-b border-slate-100"><td className="py-2">{item.product_name}<span className="block text-[10px] text-slate-500">{item.sku} · {Number(item.gst_rate)}%</span></td><td className="py-2 text-right">{Number(item.quantity)} {item.unit_name}</td><td className="py-2 text-right">{money(item.unit_price)}</td><td className="py-2 text-right">{money(item.taxable_amount)}</td><td className="py-2 text-right">{money(Number(item.cgst_amount)+Number(item.sgst_amount)+Number(item.igst_amount))}</td><td className="py-2 text-right">{money(item.line_total)}</td></tr>)}</tbody></table>}
+      <dl className="ml-auto grid max-w-xs grid-cols-2 gap-y-1 border-b border-slate-300 py-3 text-xs"><dt>Subtotal</dt><dd className="text-right">{money(invoice.subtotal)}</dd><dt>Discount</dt><dd className="text-right">−{money(invoice.discount_total)}</dd><dt>CGST</dt><dd className="text-right">{money(invoice.cgst_total)}</dd><dt>SGST</dt><dd className="text-right">{money(invoice.sgst_total)}</dd><dt>IGST</dt><dd className="text-right">{money(invoice.igst_total)}</dd><dt className="pt-2 text-sm font-bold">Grand total</dt><dd className="pt-2 text-right text-sm font-bold">{money(invoice.grand_total)}</dd><dt>Paid ({invoice.payment_status.replaceAll("_", " ")})</dt><dd className="text-right">{money(invoice.amount_paid)}</dd><dt>Balance due</dt><dd className="text-right">{money(invoice.balance_due)}</dd></dl><footer className="pt-3 text-center text-[10px]"><p>{invoice.invoice_footer}</p><p className="mt-2 whitespace-pre-line">{invoice.invoice_terms}</p><p className="mt-3 font-semibold">Thank you for your business.</p></footer></article>
+    <style>{`@page { size: ${paper} auto; margin: ${narrow ? "2mm" : "10mm"}; } .invoice-paper { width: ${narrow ? "100%" : "190mm"}; max-width: ${narrow ? "80mm" : "190mm"}; padding: ${narrow ? "4mm" : "10mm"}; } @media print { body { background: white; } .invoice-paper { width: ${narrow ? paper : "190mm"}; max-width: none; padding: 0; margin: 0; } }`}</style>
+  </main>;
+}
